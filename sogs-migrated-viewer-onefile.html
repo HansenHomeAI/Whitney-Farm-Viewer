@@ -23,6 +23,50 @@
       #root {
         min-height: 100vh;
       }
+
+      /* Splat scene panel (paired with toolbar button; uses .lot-editor-panel in markup) */
+      #sogsSceneDevPanel.sogs-scene-editor-panel {
+        width: 248px;
+        z-index: 13;
+      }
+      #sogsSceneDevPanel .sogs-scene-dev-grid3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 4px;
+      }
+      #sogsSceneDevPanel .sogs-scene-dev-grid3 input {
+        padding: 6px 6px;
+        font-size: 11px;
+      }
+      #sogsSceneDevPanel .sogs-scene-dev-axis-hint {
+        display: flex;
+        justify-content: space-between;
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.45);
+        margin: 2px 0 4px;
+        letter-spacing: 0.3px;
+      }
+      #sogsSceneDevPanel .sogs-scene-dev-axis-hint span:nth-child(1) {
+        color: rgba(255, 100, 95, 0.95);
+      }
+      #sogsSceneDevPanel .sogs-scene-dev-axis-hint span:nth-child(2) {
+        color: rgba(95, 235, 120, 0.95);
+      }
+      #sogsSceneDevPanel .sogs-scene-dev-axis-hint span:nth-child(3) {
+        color: rgba(120, 165, 255, 0.95);
+      }
+      #sogsSceneDevPanel .sogs-scene-editor-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      #sogsSceneDevPanel .sogs-scene-copynote {
+        margin-top: 6px;
+        font-size: 9px;
+        color: rgba(120, 220, 160, 0.85);
+        min-height: 14px;
+      }
     </style>
     <style>/* components/sogs-migrated-viewer/sogs-migrated-viewer.css */
 .sogs-migrated-root {
@@ -104411,8 +104455,8 @@ const tmpTo = new Vec3();
 /** Orbit focus point for `sogs:cameraPose` (parent overlays / Three.js projection). */
 const tmpFocus = new Vec3();
 
-const AXIS_LEN = 45;
-const AXIS_RADIUS = 0.28;
+const AXIS_LEN = 0.45;
+const AXIS_RADIUS = 0.0028;
 
 window.firstFrame = function sogsFirstFrameHook() {
   window.parent.postMessage({ type: "supersplat:firstFrame" }, "*");
@@ -104552,8 +104596,8 @@ function copyRenderLayers(fromEntity, toEntity) {
 }
 
 /**
- * Thin cylinders along local +X / +Y / +Z at the splat origin, parented to gsplat.
- * Renders in the normal forward pass (depth-tested), not as immediate drawLine overlay.
+ * World-fixed RGB axes + origin at scene (0,0,0). Parented to app.root so they do not
+ * rotate/move with the splat — they measure true world X/Y/Z (PlayCanvas Y-up).
  */
 function setupSogsAxesGuides(app, gsplatEntity) {
   if (window.__sogsAxesRoot) {
@@ -104575,7 +104619,9 @@ function setupSogsAxesGuides(app, gsplatEntity) {
   const mesh = Mesh.fromGeometry(device, geom);
 
   const root = new Entity("sogsAxes");
-  gsplatEntity.addChild(root);
+  app.root.addChild(root);
+  root.setLocalPosition(0, 0, 0);
+  root.setLocalEulerAngles(0, 0, 0);
 
   const configs = [
     { name: "sogsAxisX", ex: 0, ey: 0, ez: -90, px: AXIS_LEN / 2, py: 0, pz: 0, rgb: [0.95, 0.22, 0.18] },
@@ -104597,6 +104643,23 @@ function setupSogsAxesGuides(app, gsplatEntity) {
     copyRenderLayers(gsplatEntity, ent);
     root.addChild(ent);
   }
+
+  const sphereGeom = new SphereGeometry({
+    radius: AXIS_RADIUS * 1.35,
+    latitudeBands: 14,
+    longitudeBands: 14
+  });
+  const sphereMeshAsset = Mesh.fromGeometry(device, sphereGeom);
+  const originMat = axisMaterial([0.94, 0.95, 0.98]);
+  const originEnt = new Entity("sogsAxesOrigin");
+  const oriMi = new MeshInstance(sphereMeshAsset, originMat, originEnt);
+  originEnt.addComponent("render", {
+    meshInstances: [oriMi],
+    castShadows: false,
+    receiveShadows: false
+  });
+  copyRenderLayers(gsplatEntity, originEnt);
+  root.addChild(originEnt);
 
   window.__sogsAxesRoot = root;
   root.enabled = !!window.__sogsGuidesEnabled;
@@ -104665,6 +104728,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupCameraManagerBridge(viewer.cameraManager);
   /** Primary pointer + pointermove pan was removed: it fought orbit/touch and caused bounce. */
   window.__sogsSplatXzDragReady = true;
+
+  window.__sogsGuidesEnabled = true;
+  syncSogsAxesGuides(app);
 
   window.addEventListener("message", (event) => {
     const d = event.data;
@@ -112015,10 +112081,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // lib/sogsViewerSceneDefaults.ts
   var SOGS_DEFAULT_SCENE = {
-    /** scene-v1 export 2026-03-25 */
-    position: [0, 0.231, 0],
+    position: [0.03, 0.14, 0.15],
     /** Euler ° (PlayCanvas order: X, Y, Z) */
-    rotation: [-82, -90, 0],
+    rotation: [-100, 0, 1.23],
     scale: 1,
     fov: 60
   };
@@ -119661,5 +119726,302 @@ document.addEventListener("DOMContentLoaded", async () => {
   );
 })();
 </script>
+  <script>
+(function () {
+  var STORAGE_KEY = "sogsSceneDevPanelV1";
+  var STORAGE_GUIDES = "sogsSceneDevGuidesV1";
+  var defaults = {
+    position: [0.03, 0.14, 0.15],
+    rotation: [-100, 0, 1.23],
+    scale: 1,
+    fov: 60
+  };
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var o = JSON.parse(raw);
+        return {
+          position: o.position && o.position.length === 3 ? o.position.slice() : defaults.position.slice(),
+          rotation: o.rotation && o.rotation.length === 3 ? o.rotation.slice() : defaults.rotation.slice(),
+          scale: typeof o.scale === "number" && isFinite(o.scale) ? o.scale : defaults.scale,
+          fov: typeof o.fov === "number" && isFinite(o.fov) ? o.fov : defaults.fov
+        };
+      }
+    } catch (e) {}
+    return {
+      position: defaults.position.slice(),
+      rotation: defaults.rotation.slice(),
+      scale: defaults.scale,
+      fov: defaults.fov
+    };
+  }
+  function loadGuidesPref() {
+    try {
+      var g = localStorage.getItem(STORAGE_GUIDES);
+      if (g === "0") return false;
+    } catch (e) {}
+    return true;
+  }
+  function saveGuidesPref(on) {
+    try {
+      localStorage.setItem(STORAGE_GUIDES, on ? "1" : "0");
+    } catch (e) {}
+  }
+  var state = loadState();
+  var guidesOn = loadGuidesPref();
+  var panelEl = null;
+  var toggleBtn = null;
+  var panelOpen = false;
+  var applyTimer = null;
+  var copyNoteTimer = null;
+  function getIframe() {
+    return document.querySelector("iframe.sogs-migrated-iframe");
+  }
+  function applyToIframe() {
+    var iframe = getIframe();
+    if (!iframe || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(
+      {
+        type: "sogs:apply",
+        position: state.position.slice(),
+        rotation: state.rotation.slice(),
+        scale: state.scale,
+        fov: state.fov
+      },
+      "*"
+    );
+  }
+  function applyGuidesToIframe() {
+    var iframe = getIframe();
+    if (!iframe || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage({ type: "sogs:guides", enabled: guidesOn }, "*");
+  }
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {}
+  }
+  function debouncedApply() {
+    clearTimeout(applyTimer);
+    applyTimer = setTimeout(function () {
+      applyToIframe();
+      saveState();
+    }, 72);
+  }
+  function parseRow(i0, i1, i2) {
+    var a = parseFloat(i0.value);
+    var b = parseFloat(i1.value);
+    var c = parseFloat(i2.value);
+    return [
+      isFinite(a) ? a : 0,
+      isFinite(b) ? b : 0,
+      isFinite(c) ? c : 0
+    ];
+  }
+  function setPanelOpen(open) {
+    panelOpen = open;
+    if (panelEl) {
+      panelEl.classList.toggle("active", open);
+      panelEl.setAttribute("aria-hidden", open ? "false" : "true");
+    }
+    if (toggleBtn) {
+      toggleBtn.classList.toggle("active", open);
+      toggleBtn.setAttribute("aria-pressed", open ? "true" : "false");
+    }
+  }
+  function bindPanelInputs() {
+    if (!panelEl) return;
+    function readFromDom() {
+      state.position = parseRow(
+        panelEl.querySelector('[data-k="px"]'),
+        panelEl.querySelector('[data-k="py"]'),
+        panelEl.querySelector('[data-k="pz"]')
+      );
+      state.rotation = parseRow(
+        panelEl.querySelector('[data-k="rx"]'),
+        panelEl.querySelector('[data-k="ry"]'),
+        panelEl.querySelector('[data-k="rz"]')
+      );
+      var sc = parseFloat(panelEl.querySelector('[data-k="sc"]').value);
+      var fv = parseFloat(panelEl.querySelector('[data-k="fv"]').value);
+      state.scale = isFinite(sc) ? sc : 1;
+      state.fov = isFinite(fv) ? fv : 60;
+    }
+    function fill() {
+      panelEl.querySelector('[data-k="px"]').value = state.position[0];
+      panelEl.querySelector('[data-k="py"]').value = state.position[1];
+      panelEl.querySelector('[data-k="pz"]').value = state.position[2];
+      panelEl.querySelector('[data-k="rx"]').value = state.rotation[0];
+      panelEl.querySelector('[data-k="ry"]').value = state.rotation[1];
+      panelEl.querySelector('[data-k="rz"]').value = state.rotation[2];
+      panelEl.querySelector('[data-k="sc"]').value = state.scale;
+      panelEl.querySelector('[data-k="fv"]').value = state.fov;
+    }
+    fill();
+    var gcb = panelEl.querySelector("#sogsSceneDevGuides");
+    if (gcb) {
+      gcb.checked = guidesOn;
+      gcb.addEventListener("change", function () {
+        guidesOn = !!gcb.checked;
+        saveGuidesPref(guidesOn);
+        applyGuidesToIframe();
+      });
+    }
+    ["px", "py", "pz", "rx", "ry", "rz", "sc", "fv"].forEach(function (k) {
+      panelEl.querySelector('[data-k="' + k + '"]').addEventListener("input", function () {
+        readFromDom();
+        debouncedApply();
+      });
+    });
+    panelEl.querySelector("#sogsSceneDevClose").addEventListener("click", function () {
+      setPanelOpen(false);
+    });
+    panelEl.querySelector('[data-act="reset"]').addEventListener("click", function () {
+      state = {
+        position: defaults.position.slice(),
+        rotation: defaults.rotation.slice(),
+        scale: defaults.scale,
+        fov: defaults.fov
+      };
+      fill();
+      applyToIframe();
+      saveState();
+    });
+    panelEl.querySelector('[data-act="apply"]').addEventListener("click", function () {
+      readFromDom();
+      applyToIframe();
+      saveState();
+    });
+    panelEl.querySelector('[data-act="copy"]').addEventListener("click", function () {
+      readFromDom();
+      var block =
+        "position: [" +
+        state.position.join(", ") +
+        "],\n" +
+        "rotation: [" +
+        state.rotation.join(", ") +
+        "],\n" +
+        "scale: " +
+        state.scale +
+        ",\n" +
+        "fov: " +
+        state.fov;
+      var note = panelEl.querySelector("#sogsSceneDevCopyNote");
+      function show(msg) {
+        if (note) note.textContent = msg;
+        clearTimeout(copyNoteTimer);
+        copyNoteTimer = setTimeout(function () {
+          if (note) note.textContent = "";
+        }, 2800);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(block).then(
+          function () {
+            show("Copied — paste into chat to update defaults.");
+          },
+          function () {
+            show("Copy failed.");
+          }
+        );
+      } else {
+        show("Clipboard unavailable.");
+      }
+    });
+  }
+  function mountSceneDevUi() {
+    if (document.getElementById("sogsSceneDevToggle")) return;
+    var wrap = document.getElementById("editorTogglesWrap");
+    if (!wrap) return false;
+    var wrapBtn = document.createElement("div");
+    wrapBtn.className = "lot-editor-toggle-wrap";
+    wrapBtn.id = "sogsSceneDevToggleWrap";
+    toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.id = "sogsSceneDevToggle";
+    toggleBtn.className = "lot-editor-toggle animation-editor-toggle-icon-only";
+    toggleBtn.setAttribute("aria-label", "Splat scene transform");
+    toggleBtn.setAttribute("aria-pressed", "false");
+    toggleBtn.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+      '<path d="M12 12 L20 12" stroke="#e85550" stroke-width="2" stroke-linecap="round"/>' +
+      '<path d="M12 12 L12 4" stroke="#55dd66" stroke-width="2" stroke-linecap="round"/>' +
+      '<path d="M12 12 L5 18" stroke="#6690ff" stroke-width="2" stroke-linecap="round"/>' +
+      '<circle cx="12" cy="12" r="2.2" fill="rgba(255,255,255,0.9)"/>' +
+      "</svg>";
+    wrapBtn.appendChild(toggleBtn);
+    wrap.prepend(wrapBtn);
+    panelEl = document.createElement("div");
+    panelEl.id = "sogsSceneDevPanel";
+    panelEl.className = "lot-editor-panel animation-editor-panel sogs-scene-editor-panel";
+    panelEl.setAttribute("aria-hidden", "true");
+    panelEl.setAttribute("aria-label", "Splat scene");
+    panelEl.innerHTML =
+      '<div class="animation-editor-header">' +
+      '<div class="lot-editor-title">Splat scene</div>' +
+      '<button type="button" class="animation-editor-close" id="sogsSceneDevClose" aria-label="Close">\u00D7</button></div>' +
+      '<div class="lot-editor-status animation-editor-status-compact">Splat transform (local). Axes: world (0,0,0), Y-up.</div>' +
+      '<div class="animation-path-toggles-row" style="margin-bottom:6px">' +
+      '<label class="animation-path-inline-label"><input type="checkbox" id="sogsSceneDevGuides" /> World axes (origin)</label></div>' +
+      '<div class="lot-editor-field"><label>Position</label>' +
+      '<div class="sogs-scene-dev-axis-hint"><span>X</span><span>Y</span><span>Z</span></div>' +
+      '<div class="sogs-scene-dev-grid3">' +
+      '<input type="number" step="0.01" data-k="px" />' +
+      '<input type="number" step="0.01" data-k="py" />' +
+      '<input type="number" step="0.01" data-k="pz" /></div></div>' +
+      '<div class="lot-editor-field"><label>Rotation</label>' +
+      '<div class="sogs-scene-dev-axis-hint"><span>X</span><span>Y</span><span>Z</span></div>' +
+      '<div class="sogs-scene-dev-grid3">' +
+      '<input type="number" step="0.01" data-k="rx" />' +
+      '<input type="number" step="0.01" data-k="ry" />' +
+      '<input type="number" step="0.01" data-k="rz" /></div></div>' +
+      '<div class="lot-editor-field"><label>Scale</label>' +
+      '<div class="sogs-scene-dev-grid3"><input type="number" step="0.01" data-k="sc" style="grid-column: span 3" /></div></div>' +
+      '<div class="lot-editor-field"><label>FOV</label>' +
+      '<div class="sogs-scene-dev-grid3"><input type="number" step="0.01" data-k="fv" style="grid-column: span 3" /></div></div>' +
+      '<div class="sogs-scene-editor-actions">' +
+      '<button type="button" class="lot-editor-action-btn" data-act="reset">Reset</button>' +
+      '<button type="button" class="lot-editor-action-btn" data-act="apply">Apply</button></div>' +
+      '<button type="button" class="lot-editor-action-btn" data-act="copy" style="width:100%;margin-top:6px">Copy for SOGS_DEFAULT_SCENE</button>' +
+      '<div class="sogs-scene-copynote" id="sogsSceneDevCopyNote"></div>';
+    var host = document.querySelector(".sogs-migrated-root");
+    (host || document.body).appendChild(panelEl);
+    bindPanelInputs();
+    toggleBtn.addEventListener("click", function () {
+      setPanelOpen(!panelOpen);
+    });
+    applyGuidesToIframe();
+    return true;
+  }
+  function tryMountLoop() {
+    if (mountSceneDevUi()) return;
+    setTimeout(tryMountLoop, 120);
+  }
+  tryMountLoop();
+  function tryApplyLoop() {
+    if (getIframe()) {
+      applyToIframe();
+      return;
+    }
+    requestAnimationFrame(function retry() {
+      if (getIframe()) applyToIframe();
+      else setTimeout(retry, 200);
+    });
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", tryApplyLoop);
+  } else {
+    tryApplyLoop();
+  }
+  window.addEventListener("message", function (ev) {
+    if (ev.data && ev.data.type === "supersplat:firstFrame" && getIframe() && ev.source === getIframe().contentWindow) {
+      setTimeout(function () {
+        applyToIframe();
+        applyGuidesToIframe();
+      }, 50);
+    }
+  });
+})();
+  </script>
   </body>
 </html>
