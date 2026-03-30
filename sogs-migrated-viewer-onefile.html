@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>sogs-migrated-viewer</title>
     <meta name="description" content="Canyon-Vista UI with SOGS / SuperSplat viewer" />
-    <!-- Default SOGS bundle is hardcoded to …/supersplat_bundle/meta.json (same as web/lib/sogsViewerBundle.ts). Append ?url=…/meta.json to override. -->
+    <!-- Default SOGS bundle: edited splat, SSE-S3 copy (browser-fetchable; KMS originals need proxy). ?url= overrides. -->
     <style>
       html,
       body,
@@ -112036,7 +112036,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     "spaceport-ml-processing.s3.amazonaws.com",
     "spaceport-ml-processing.s3.us-west-2.amazonaws.com"
   ]);
-  var DEFAULT_SOGS_BUNDLE_URL = "https://spaceport-ml-processing.s3.amazonaws.com/compressed/manual-3dgs-1774642514/supersplat_bundle/meta.json";
+  var DEFAULT_SOGS_BUNDLE_URL = "https://spaceport-ml-processing.s3.amazonaws.com/compressed/edited-splat-20260330-browser/supersplat_bundle/meta.json";
   function getBaseOrigin() {
     return typeof window !== "undefined" ? window.location.origin : "https://spcprt.com";
   }
