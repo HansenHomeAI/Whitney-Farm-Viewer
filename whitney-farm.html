@@ -104594,7 +104594,10 @@ function setupCameraManagerBridge(cameraManager) {
     if (!skipFirstOrbitAfterScripted) {
       origUpdate(dt, frame);
     }
-    clampVec3ToOriginSphere(cameraManager.camera.position);
+    const cam2 = cameraManager.camera;
+    cam2.calcFocusPoint(tmpFocus);
+    clampVec3ToOriginSphere(cam2.position);
+    cam2.look(cam2.position, tmpFocus);
     if (typeof cameraManager.syncOrbitFromCurrentCamera === "function") {
       cameraManager.syncOrbitFromCurrentCamera();
     }
