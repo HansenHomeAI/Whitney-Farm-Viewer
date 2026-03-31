@@ -67,11 +67,6 @@
         color: rgba(120, 220, 160, 0.85);
         min-height: 14px;
       }
-      /* Hide splat scene dev tools (toolbar control + panel); script still applies saved transform */
-      #sogsSceneDevToggleWrap,
-      #sogsSceneDevPanel {
-        display: none !important;
-      }
     </style>
     <style>/* components/sogs-migrated-viewer/sogs-migrated-viewer.css */
 .sogs-migrated-root {
@@ -104469,7 +104464,7 @@ const tmpTo = new Vec3();
 const tmpFocus = new Vec3();
 
 /** World-space: camera position cannot be farther than this from (0,0,0). */
-const SOGS_MAX_CAMERA_ORIGIN_DISTANCE = 1.5;
+const SOGS_MAX_CAMERA_ORIGIN_DISTANCE = 1;
 
 function clampVec3ToOriginSphere(v, maxR = SOGS_MAX_CAMERA_ORIGIN_DISTANCE) {
   const len = Math.hypot(v.x, v.y, v.z);
@@ -112139,7 +112134,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
   }
 
-  var SOGS_MAX_CAMERA_ORIGIN_DISTANCE = 1.5;
+  var SOGS_MAX_CAMERA_ORIGIN_DISTANCE = 1;
   function clampVec3ArrayToOriginSphere(arr, maxR) {
     if (!Array.isArray(arr) || arr.length < 3) return;
     const len = Math.hypot(arr[0], arr[1], arr[2]);
@@ -112209,7 +112204,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     startPosition: { x: 0.18176530703919916, y: 0.1536454655104243, z: -0.21502000730852158 },
     target: { x: 0, y: 0, z: 0 },
     minDistance: 0.05,
-    maxDistance: 1.5,
+    maxDistance: 1,
     minPolarAngle: 14,
     maxPolarAngle: 179,
     /** Degrees: positive Z = 0; matches Canyon-Vista `compass.northDirection`. */
@@ -120026,67 +120021,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
   function mountSceneDevUi() {
-    if (document.getElementById("sogsSceneDevToggle")) return;
-    var wrap = document.getElementById("editorTogglesWrap");
-    if (!wrap) return false;
-    var wrapBtn = document.createElement("div");
-    wrapBtn.className = "lot-editor-toggle-wrap";
-    wrapBtn.id = "sogsSceneDevToggleWrap";
-    toggleBtn = document.createElement("button");
-    toggleBtn.type = "button";
-    toggleBtn.id = "sogsSceneDevToggle";
-    toggleBtn.className = "lot-editor-toggle animation-editor-toggle-icon-only";
-    toggleBtn.setAttribute("aria-label", "Splat scene transform");
-    toggleBtn.setAttribute("aria-pressed", "false");
-    toggleBtn.innerHTML =
-      '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-      '<path d="M12 12 L20 12" stroke="#e85550" stroke-width="2" stroke-linecap="round"/>' +
-      '<path d="M12 12 L12 4" stroke="#55dd66" stroke-width="2" stroke-linecap="round"/>' +
-      '<path d="M12 12 L5 18" stroke="#6690ff" stroke-width="2" stroke-linecap="round"/>' +
-      '<circle cx="12" cy="12" r="2.2" fill="rgba(255,255,255,0.9)"/>' +
-      "</svg>";
-    wrapBtn.appendChild(toggleBtn);
-    wrap.prepend(wrapBtn);
-    panelEl = document.createElement("div");
-    panelEl.id = "sogsSceneDevPanel";
-    panelEl.className = "lot-editor-panel animation-editor-panel sogs-scene-editor-panel";
-    panelEl.setAttribute("aria-hidden", "true");
-    panelEl.setAttribute("aria-label", "Splat scene");
-    panelEl.innerHTML =
-      '<div class="animation-editor-header">' +
-      '<div class="lot-editor-title">Splat scene</div>' +
-      '<button type="button" class="animation-editor-close" id="sogsSceneDevClose" aria-label="Close">\u00D7</button></div>' +
-      '<div class="lot-editor-status animation-editor-status-compact">Splat transform (local). Axes: world (0,0,0), Y-up.</div>' +
-      '<div class="animation-path-toggles-row" style="margin-bottom:6px">' +
-      '<label class="animation-path-inline-label"><input type="checkbox" id="sogsSceneDevGuides" /> World axes (origin)</label></div>' +
-      '<div class="lot-editor-field"><label>Position</label>' +
-      '<div class="sogs-scene-dev-axis-hint"><span>X</span><span>Y</span><span>Z</span></div>' +
-      '<div class="sogs-scene-dev-grid3">' +
-      '<input type="number" step="0.01" data-k="px" />' +
-      '<input type="number" step="0.01" data-k="py" />' +
-      '<input type="number" step="0.01" data-k="pz" /></div></div>' +
-      '<div class="lot-editor-field"><label>Rotation</label>' +
-      '<div class="sogs-scene-dev-axis-hint"><span>X</span><span>Y</span><span>Z</span></div>' +
-      '<div class="sogs-scene-dev-grid3">' +
-      '<input type="number" step="0.01" data-k="rx" />' +
-      '<input type="number" step="0.01" data-k="ry" />' +
-      '<input type="number" step="0.01" data-k="rz" /></div></div>' +
-      '<div class="lot-editor-field"><label>Scale</label>' +
-      '<div class="sogs-scene-dev-grid3"><input type="number" step="0.01" data-k="sc" style="grid-column: span 3" /></div></div>' +
-      '<div class="lot-editor-field"><label>FOV</label>' +
-      '<div class="sogs-scene-dev-grid3"><input type="number" step="0.01" data-k="fv" style="grid-column: span 3" /></div></div>' +
-      '<div class="sogs-scene-editor-actions">' +
-      '<button type="button" class="lot-editor-action-btn" data-act="reset">Reset</button>' +
-      '<button type="button" class="lot-editor-action-btn" data-act="apply">Apply</button></div>' +
-      '<button type="button" class="lot-editor-action-btn" data-act="copy" style="width:100%;margin-top:6px">Copy for SOGS_DEFAULT_SCENE</button>' +
-      '<div class="sogs-scene-copynote" id="sogsSceneDevCopyNote"></div>';
-    var host = document.querySelector(".sogs-migrated-root");
-    (host || document.body).appendChild(panelEl);
-    bindPanelInputs();
-    toggleBtn.addEventListener("click", function () {
-      setPanelOpen(!panelOpen);
-    });
-    applyGuidesToIframe();
     return true;
   }
   function tryMountLoop() {
