@@ -112806,21 +112806,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // components/sogs-migrated-viewer/CanyonCompassLive.tsx
   var import_jsx_runtime3 = __toESM(require_jsx_runtime(), 1);
   function CanyonCompassLive({ poseRef, orbitTargetRef, northDeg, onClick, compassAriaLabel }) {
-    const [rot, setRot] = (0, import_react2.useState)(0);
-    (0, import_react2.useEffect)(() => {
-      let raf = 0;
-      const tick = () => {
-        const p = poseRef.current;
-        const ot = orbitTargetRef.current;
-        if (p) {
-          setRot(compassArrowRotationDeg(p.position, ot, northDeg));
-        }
-        raf = requestAnimationFrame(tick);
-      };
-      raf = requestAnimationFrame(tick);
-      return () => cancelAnimationFrame(raf);
-    }, [poseRef, orbitTargetRef, northDeg]);
-    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CanyonCompass, { rotationDeg: rot, onClick, ariaLabel: compassAriaLabel });
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CanyonCompass, { rotationDeg: 0, onClick, ariaLabel: compassAriaLabel });
   }
 
   // components/sogs-migrated-viewer/CanyonDetailsPanel.tsx
