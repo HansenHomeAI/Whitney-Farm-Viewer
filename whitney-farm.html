@@ -67,6 +67,11 @@
         color: rgba(120, 220, 160, 0.85);
         min-height: 14px;
       }
+      /* Hide splat scene dev tools (toolbar control + panel); script still applies saved transform */
+      #sogsSceneDevToggleWrap,
+      #sogsSceneDevPanel {
+        display: none !important;
+      }
     </style>
     <style>/* components/sogs-migrated-viewer/sogs-migrated-viewer.css */
 .sogs-migrated-root {
