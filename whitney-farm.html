@@ -67,6 +67,20 @@
         color: rgba(120, 220, 160, 0.85);
         min-height: 14px;
       }
+      /* Production: hide editor dev toolbar, camera path panel, scene overlays */
+      #editorTogglesWrap,
+      #animationEditorPanel {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+      .sogs-migrated-root .tapdot-layer,
+      .sogs-migrated-root .sold-hotspot-layer,
+      .sogs-migrated-root .lot-lines-svg {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
     </style>
     <style>/* components/sogs-migrated-viewer/sogs-migrated-viewer.css */
 .sogs-migrated-root {
@@ -104757,7 +104771,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   /** Primary pointer + pointermove pan was removed: it fought orbit/touch and caused bounce. */
   window.__sogsSplatXzDragReady = true;
 
-  window.__sogsGuidesEnabled = true;
+  window.__sogsGuidesEnabled = false;
   syncSogsAxesGuides(app);
 
   window.addEventListener("message", (event) => {
@@ -119234,7 +119248,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const [viewerState, setViewerState] = (0, import_react9.useState)("idle");
     const [pathPlaying, setPathPlaying] = (0, import_react9.useState)(false);
     const [autoRotate, setAutoRotate] = (0, import_react9.useState)(CANYON_VISTA_ORBIT.autoRotateDefault);
-    const [showTapDots, setShowTapDots] = (0, import_react9.useState)(true);
+    const [showTapDots, setShowTapDots] = (0, import_react9.useState)(false);
     const [showLotLines, setShowLotLines] = (0, import_react9.useState)(false);
     const [showSoldLabels, setShowSoldLabels] = (0, import_react9.useState)(false);
     const [pathVersion, setPathVersion] = (0, import_react9.useState)(0);
@@ -119829,9 +119843,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   function loadGuidesPref() {
     try {
       var g = localStorage.getItem(STORAGE_GUIDES);
-      if (g === "0") return false;
+      if (g === "1") return true;
     } catch (e) {}
-    return true;
+    return false;
   }
   function saveGuidesPref(on) {
     try {
@@ -119865,7 +119879,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function applyGuidesToIframe() {
     var iframe = getIframe();
     if (!iframe || !iframe.contentWindow) return;
-    iframe.contentWindow.postMessage({ type: "sogs:guides", enabled: guidesOn }, "*");
+    iframe.contentWindow.postMessage({ type: "sogs:guides", enabled: false }, "*");
   }
   function saveState() {
     try {
