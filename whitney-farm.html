@@ -112353,12 +112353,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     { start: "Lot_V18", end: "Lot_V21" },
     { start: "Lot_V21", end: "Lot_V15" }
   ];
-  function compassArrowRotationDeg(cameraPos, orbitTarget, northDirectionDeg) {
-    const deltaX = cameraPos.x - orbitTarget.x;
-    const deltaZ = cameraPos.z - orbitTarget.z;
-    const cameraBearing = (Math.atan2(deltaX, deltaZ) * 180 / Math.PI + 360) % 360;
-    return (northDirectionDeg - cameraBearing + 360) % 360;
-  }
   var CANYON_VISTA_SOLD_HOTSPOTS = [
     { text: "SOLD", position: { x: 0.22, y: 0.5, z: -0.85 }, scale: 0.2, verticalOffset: 0.06 }
   ];
@@ -112785,7 +112779,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // components/sogs-migrated-viewer/CanyonCompassLive.tsx
-  var import_react2 = __toESM(require_react(), 1);
 
   // components/sogs-migrated-viewer/CanyonCompass.tsx
   var import_jsx_runtime2 = __toESM(require_jsx_runtime(), 1);
