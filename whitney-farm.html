@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>sogs-migrated-viewer</title>
-    <meta name="description" content="Canyon-Vista UI with SOGS / SuperSplat viewer" />
+    <title>Whitney Farm</title>
+    <meta name="description" content="Whitney Farm — Georgia land and residence, interactive 3D viewer." />
     <!-- Default SOGS bundle: edited splat, SSE-S3 copy (browser-fetchable; KMS originals need proxy). ?url= overrides. -->
     <style>
       html,
@@ -529,6 +529,14 @@
 }
 .animation-path-speed input {
   margin-left: 2px;
+}
+.animation-checkpoint-hover-actions .animation-checkpoint-origin-btn {
+  width: auto;
+  min-width: 28px;
+  padding: 0 5px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 .animation-checkpoint-strip {
   display: flex;
@@ -104455,6 +104463,18 @@ const tmpTo = new Vec3();
 /** Orbit focus point for `sogs:cameraPose` (parent overlays / Three.js projection). */
 const tmpFocus = new Vec3();
 
+/** World-space: camera position cannot be farther than this from (0,0,0). */
+const SOGS_MAX_CAMERA_ORIGIN_DISTANCE = 1.5;
+
+function clampVec3ToOriginSphere(v, maxR = SOGS_MAX_CAMERA_ORIGIN_DISTANCE) {
+  const len = Math.hypot(v.x, v.y, v.z);
+  if (len <= maxR || len < 1e-10) return;
+  const s = maxR / len;
+  v.x *= s;
+  v.y *= s;
+  v.z *= s;
+}
+
 const AXIS_LEN = 0.45;
 const AXIS_RADIUS = 0.0028;
 
@@ -104544,6 +104564,7 @@ function setupCameraManagerBridge(cameraManager) {
       const pose = window.__sogsCameraPose;
       if (pose?.position?.length === 3 && pose?.target?.length === 3) {
         tmpFrom.set(pose.position[0], pose.position[1], pose.position[2]);
+        clampVec3ToOriginSphere(tmpFrom);
         tmpTo.set(pose.target[0], pose.target[1], pose.target[2]);
         cameraManager.camera.look(tmpFrom, tmpTo);
         if (typeof pose.fov === "number" && Number.isFinite(pose.fov)) {
@@ -104567,6 +104588,10 @@ function setupCameraManagerBridge(cameraManager) {
     }
     if (!skipFirstOrbitAfterScripted) {
       origUpdate(dt, frame);
+    }
+    clampVec3ToOriginSphere(cameraManager.camera.position);
+    if (typeof cameraManager.syncOrbitFromCurrentCamera === "function") {
+      cameraManager.syncOrbitFromCurrentCamera();
     }
     if (typeof window.__sogsUserFov === "number" && Number.isFinite(window.__sogsUserFov)) {
       cameraManager.camera.fov = window.__sogsUserFov;
@@ -104765,11 +104790,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       postSogsState();
     }
     if (d.type === "sogs:cameraLookAt") {
-      window.__sogsCameraPose = {
-        position: d.position,
-        target: d.target,
-        fov: d.fov,
-      };
+      if (Array.isArray(d.position) && d.position.length === 3) {
+        tmpFrom.set(d.position[0], d.position[1], d.position[2]);
+        clampVec3ToOriginSphere(tmpFrom);
+        window.__sogsCameraPose = {
+          position: [tmpFrom.x, tmpFrom.y, tmpFrom.z],
+          target: d.target,
+          fov: d.fov,
+        };
+      } else {
+        window.__sogsCameraPose = {
+          position: d.position,
+          target: d.target,
+          fov: d.fov,
+        };
+      }
       app.renderNextFrame = true;
     }
     if (d.type === "sogs:cameraMode") {
@@ -112096,6 +112131,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
   }
 
+  var SOGS_MAX_CAMERA_ORIGIN_DISTANCE = 1.5;
+  function clampVec3ArrayToOriginSphere(arr, maxR) {
+    if (!Array.isArray(arr) || arr.length < 3) return;
+    const len = Math.hypot(arr[0], arr[1], arr[2]);
+    if (len <= maxR || len < 1e-10) return;
+    const s = maxR / len;
+    arr[0] *= s;
+    arr[1] *= s;
+    arr[2] *= s;
+  }
+  function clampVec3ObjectToOriginSphere(o, maxR) {
+    if (!o) return;
+    const len = Math.hypot(o.x, o.y, o.z);
+    if (len <= maxR || len < 1e-10) return;
+    const s = maxR / len;
+    o.x *= s;
+    o.y *= s;
+    o.z *= s;
+  }
+
   // lib/sogsViewerBundle.ts
   var PROXY_HOSTS = /* @__PURE__ */ new Set([
     "spaceport-ml-processing.s3.amazonaws.com",
@@ -112135,7 +112190,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // lib/canyon-vista/canyonVistaConfig.ts
   var CANYON_VISTA_HOLES = [
-    { id: "canyon-vista", label: "Canyon Vista" },
+    { id: "canyon-vista", label: "Whitney Farm" },
     {
       id: "sogs-test",
       label: "SOGS test bundle",
@@ -112143,10 +112198,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   ];
   var CANYON_VISTA_HOLE_VIEW = {
-    startPosition: { x: 0.22, y: 0.6, z: 2.75 },
-    target: { x: 0, y: -0.06, z: 0 },
-    minDistance: 0.65,
-    maxDistance: 10.4,
+    startPosition: { x: 0.18176530703919916, y: 0.1536454655104243, z: -0.21502000730852158 },
+    target: { x: 0, y: 0, z: 0 },
+    minDistance: 0.05,
+    maxDistance: 1.5,
     minPolarAngle: 14,
     maxPolarAngle: 179,
     /** Degrees: positive Z = 0; matches Canyon-Vista `compass.northDirection`. */
@@ -112182,16 +112237,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     autoPlayDelayMs: 400
   };
   var CANYON_VISTA_DEFAULT_PATH_CHECKPOINTS = [
-    { position: { x: 1.582791, y: -0.07165, z: 1.155954 }, lookAt: { x: 0.1521, y: -0.180213, z: 0.600098 }, duration: 5 },
-    { position: { x: -0.989708, y: -0.161084, z: 1.283174 }, lookAt: { x: -0.17469, y: -0.18147, z: -0.161278 }, duration: 5 },
-    { position: { x: -1.530198, y: -0.097836, z: -1.906522 }, lookAt: { x: 2.724609, y: -0.227332, z: 3.281251 }, duration: 5 },
-    { position: { x: -1.325258, y: -0.030263, z: -2.667343 }, lookAt: { x: 0.354004, y: -0.305945, z: 0.594727 }, duration: 5 },
-    { position: { x: 1.444272, y: 0.169617, z: -0.76639 }, lookAt: { x: -0.090491, y: -0.217613, z: 0.15015 }, duration: 5 },
-    { position: { x: 1.478771, y: 0.194052, z: 1.019511 }, lookAt: { x: 0.745117, y: -0.074988, z: 0.486328 }, duration: 5 },
-    { position: { x: -1.265139, y: 0.211001, z: 1.352802 }, lookAt: { x: -0.423096, y: -0.072303, z: 0.484131 }, duration: 5 },
-    { position: { x: -2.512238, y: 0.821241, z: -0.829907 }, lookAt: { x: -0.094055, y: -0.085242, z: -0.053162 }, duration: 5 },
-    { position: { x: 0.342197, y: 0.528242, z: -3.460023 }, lookAt: { x: 0.077108, y: -0.104422, z: -0.347646 }, duration: 5 },
-    { position: { x: 1.917807, y: 0.84939, z: 2.072994 }, lookAt: { x: 0.077108, y: -0.104422, z: -0.347646 }, duration: 5 }
+    { position: { x: 0.7461746947266682, y: 0.14260782557396592, z: 0.38651801378943884 }, lookAt: { x: 0, y: 0, z: 0 }, duration: 5 },
+    { position: { x: -0.11611124868096911, y: 0.11416411834191284, z: 0.7868658852331094 }, lookAt: { x: 0, y: 0, z: 0 }, duration: 5 },
+    { position: { x: -0.2530779884696408, y: 0.12073943087579511, z: -0.09233098111576238 }, lookAt: { x: 0, y: 0, z: 0 }, duration: 5 },
+    { position: { x: -0.005011982722753869, y: 0.09995754066659843, z: -0.13395351286917298 }, lookAt: { x: 0, y: 0, z: 0 }, duration: 2.6 },
+    { position: { x: 0.16479578101298925, y: 0.17233962813226092, z: -0.1844152932557703 }, lookAt: { x: 0, y: 0, z: 0 }, duration: 5 },
+    { position: { x: 0.16894369910989568, y: 0.16619321462878042, z: 0.18629395909013294 }, lookAt: { x: 0, y: 0, z: 0 }, duration: 5 },
+    { position: { x: -0.5561270833331312, y: 0.5544420041505909, z: 0.279814997453762 }, lookAt: { x: 0, y: 0, z: 0 }, duration: 5 },
+    { position: { x: -0.16202795459706187, y: 0.30207327588286537, z: -0.47034971356266736 }, lookAt: { x: 0, y: 0, z: 0 }, duration: 5 }
   ];
   var CANYON_VISTA_CAMERA_START_Y = 0.55;
 
@@ -112483,6 +112536,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!c) return;
     c.duration = Math.max(0.1, duration);
   }
+  function setCheckpointLookAtOrigin(state, index) {
+    const c = state.checkpoints[index];
+    if (!c) return;
+    c.lookAt = { x: 0, y: 0, z: 0 };
+  }
   function setPathSpeed(state, speed) {
     state.speed = Number.isFinite(speed) && speed > 0 ? speed : 1;
   }
@@ -112621,6 +112679,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             ),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "animation-checkpoint-hover-actions", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", onClick: () => onSeekCheckpoint(i), title: "Go", children: "Go" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                "button",
+                {
+                  type: "button",
+                  className: "animation-checkpoint-origin-btn",
+                  disabled,
+                  title: "Set look-at to world origin (0, 0, 0)",
+                  onClick: () => {
+                    setCheckpointLookAtOrigin(pathStateRef.current, i);
+                    bumpPath();
+                    onSeekCheckpoint(i);
+                  },
+                  children: "Origin"
+                }
+              ),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                 "button",
                 {
@@ -112803,7 +112876,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         "aria-hidden": !open,
         role: "dialog",
         "aria-modal": true,
-        "aria-labelledby": "canyon-details-heading",
+        "aria-labelledby": "whitney-details-heading",
         children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
           "div",
           {
@@ -112823,9 +112896,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                   children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("img", { src: fullscreen ? MINIMIZE_ICON : FULLSCREEN_ICON, alt: "", draggable: false, width: 21, height: 21 })
                 }
               ),
-              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h1", { id: "canyon-details-heading", children: "Canyon Vista" }),
-              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { children: "Canyon Vista is a contemporary apartment community in Draper, Utah, just south of Sandy at the Point of the Mountain. Positioned for quick access to I-15, nearby TRAX, and the Silicon Slopes corridor, the property combines commuter convenience with Wasatch mountain views and a more residential setting. The community is centered on everyday livability, with modern interiors, in-home laundry, a resort-style pool and spa, fitness and yoga spaces, pickleball, play areas, and shared lounge amenities that support both workday routine and weekend downtime." }),
-              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { className: "legal-disclaimer", children: "Information and imagery are representative; amenities, finishes, and availability may vary. Not an offer to lease or sell; see leasing office for current terms." })
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h1", { id: "whitney-details-heading", children: "Whitney Farm" }),
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { children: "Whitney Farm offers a rare opportunity to own a substantial and self-contained Georgia farm with room to breathe. Encompassing approximately 225± acres of mixed woodland and open pasture, the property is anchored by a well-positioned residence that serves as a natural hub for the land surrounding it." }),
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { children: "The terrain is gently varied — a practical, working landscape that lends itself equally to agricultural use, recreational pursuits, or a private family compound. Mature timber stands provide privacy and habitat, while cleared acreage offers flexibility for pasture, food plots, or future improvements." }),
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { children: "Quietly removed from the bustle of everyday life yet accessible to Georgia's amenity corridors, Whitney Farm represents a solid and enduring land investment with strong bones and meaningful potential. Offered by Hall and Hall." }),
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { className: "legal-disclaimer", children: "Information is representative; verify acreage, boundaries, and improvements independently. Not an offer where prohibited by law." })
             ] })
           }
         )
@@ -119135,6 +119210,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   var DEFAULT_VIEWER_SETTINGS_PATH = "../supersplat-viewer/settings.json";
   function postToWindow(win, payload) {
     if (!win) return;
+    if (payload?.type === "sogs:cameraLookAt" && Array.isArray(payload.position) && payload.position.length >= 3) {
+      clampVec3ArrayToOriginSphere(payload.position, SOGS_MAX_CAMERA_ORIGIN_DISTANCE);
+    }
     try {
       win.postMessage(payload, "*");
     } catch {
@@ -119283,10 +119361,12 @@ document.addEventListener("DOMContentLoaded", async () => {
               },
               "*"
             );
+            const posArr = [sp.x, sp.y, sp.z];
+            clampVec3ArrayToOriginSphere(posArr, SOGS_MAX_CAMERA_ORIGIN_DISTANCE);
             event.source.postMessage(
               {
                 type: "sogs:cameraLookAt",
-                position: [sp.x, sp.y, sp.z],
+                position: posArr,
                 target: [t.x, t.y, t.z],
                 fov: scene.fov
               },
@@ -119295,11 +119375,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             event.source.postMessage({ type: "sogs:cameraMode", mode: "free" }, "*");
           } catch {
           }
-          poseRef.current = {
-            position: { x: sp.x, y: sp.y, z: sp.z },
-            target: { x: t.x, y: t.y, z: t.z },
-            fov: scene.fov
-          };
+          {
+            const p0 = { x: sp.x, y: sp.y, z: sp.z };
+            clampVec3ObjectToOriginSphere(p0, SOGS_MAX_CAMERA_ORIGIN_DISTANCE);
+            poseRef.current = {
+              position: p0,
+              target: { x: t.x, y: t.y, z: t.z },
+              fov: scene.fov
+            };
+          }
           orbitFocusRef.current = { x: t.x, y: t.y, z: t.z };
           lastScriptedRef.current = false;
           setViewerState("ready");
@@ -119348,11 +119432,15 @@ document.addEventListener("DOMContentLoaded", async () => {
           const d = event.data;
           if (!Array.isArray(d.position) || d.position.length < 3) return;
           if (!Array.isArray(d.target) || d.target.length < 3) return;
-          poseRef.current = {
-            position: { x: d.position[0], y: d.position[1], z: d.position[2] },
-            target: { x: d.target[0], y: d.target[1], z: d.target[2] },
-            fov: typeof d.fov === "number" && Number.isFinite(d.fov) ? d.fov : createDefaultScenePayload().fov
-          };
+          {
+            const pos = { x: d.position[0], y: d.position[1], z: d.position[2] };
+            clampVec3ObjectToOriginSphere(pos, SOGS_MAX_CAMERA_ORIGIN_DISTANCE);
+            poseRef.current = {
+              position: pos,
+              target: { x: d.target[0], y: d.target[1], z: d.target[2] },
+              fov: typeof d.fov === "number" && Number.isFinite(d.fov) ? d.fov : createDefaultScenePayload().fov
+            };
+          }
           orbitFocusRef.current = {
             x: d.target[0],
             y: d.target[1],
@@ -119511,7 +119599,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
     const toggleDisabled = viewerState !== "ready";
     return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("main", { className: "sogs-migrated-root", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("h1", { className: "sogs-migrated-sr-only", children: "Canyon Vista (SOGS)" }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("h1", { className: "sogs-migrated-sr-only", children: "Whitney Farm" }),
       /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { ref: containerRef, className: "sogs-migrated-stage", children: [
         viewerSrc ? /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(
           "iframe",
